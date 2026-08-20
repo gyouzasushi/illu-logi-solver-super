@@ -32,9 +32,6 @@
 //! assert_eq!(solver.solve().unwrap(), Outcome::Solved);
 //! println!("{solver}");
 //! ```
-//!
-//! 詳しい使い方（制約の与え方、`Solver` と `Session` の使い分け）は
-//! リポジトリの README を参照。
 #![warn(missing_docs)]
 
 mod analysis;
