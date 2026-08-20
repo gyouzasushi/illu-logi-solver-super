@@ -9,10 +9,7 @@
 //! 各行は黒マスの連続長を空白区切りで並べ、空の制約（全マス白）は `-`。
 //! `#` で始まる行はコメント。ファイルを省略すると標準入力から読む。
 //!
-//! `--steps` を付けると1手ずつ [`Solver::next_step`] を実行し、各手の
-//! 根拠（[`Reason`]）を [`Hint`] の行コンテキストと組み合わせて日本語で
-//! 説明する。文言化はコアの仕事ではなくUI層の仕事、という設計方針の
-//! ショーケースでもある。
+//! `--steps` を付けると1手ずつ実行し、各手の根拠を日本語で説明する。
 
 use illu_logi_solver_super::*;
 use std::fmt::Write as _;
@@ -59,8 +56,7 @@ fn parse_puzzle(text: &str) -> Result<Clues, String> {
     Clues::new(rows, cols).map_err(|e| format!("制約が不正です: {e}"))
 }
 
-/// `Hint` を日本語の説明文にする。コアは根拠の生データ（`Reason` と
-/// 同一スナップショットの行コンテキスト）だけを持ち、文言化はここ（UI層）で行う。
+/// `Hint` を日本語の説明文にする。
 fn describe(hint: &Hint) -> String {
     let step = &hint.step;
     let line = match step.line {

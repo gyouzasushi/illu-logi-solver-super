@@ -1,13 +1,8 @@
 //! 1本の行・列の純関数的な分析。
 //!
-//! [`LineAnalysis::compute`] は「制約（ブロックサイズ列）と現在のセル状態」
-//! だけを入力に取り、各ブロックの配置可能範囲と各セルの候補ブロックID範囲を
-//! 不動点まで狭める。旧設計と違い行側に永続状態を持たないため、
-//! 「候補は狭まる一方向にしか更新されない」という不変条件を外部の書き込みが
-//! 壊す余地がそもそもない（毎回ゼロから計算し直す）。
-//!
-//! 不動点計算の中身は、総当たり検証済みの旧実装
-//! （`illu-logi-solver` の `Line::update_possible_id`）の逐語移植である。
+//! [`LineAnalysis::compute`] は制約（ブロックサイズ列）と現在のセル状態だけを
+//! 入力に取り、各ブロックの配置可能範囲と各セルの候補ブロックID範囲を
+//! 不動点まで狭める。
 
 use crate::grid::CellState;
 use std::ops::Range;
@@ -309,7 +304,6 @@ mod tests {
         assert_eq!(segments_of(&[], |_| true), vec![]);
     }
 
-    // 旧実装の test_update_possible_id の移植。
     #[test]
     fn test_confirmed_ids() {
         let cells = cells_from("xxooo|ooxxx|...xo|xoxxo");

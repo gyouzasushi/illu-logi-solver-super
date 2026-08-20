@@ -1,17 +1,8 @@
 //! 推論エンジン。
 //!
-//! [`Solver`] は検証済みの制約 [`Clues`] と単一の盤面 [`Grid`] を持ち、
-//! 行・列ごとの純関数的な分析（[`crate::analysis`]）と8つの推論規則
-//! （[`crate::rules`]）を使って盤面を埋める。
-//!
-//! - 速度が要るとき（フルソルブ）は [`Solver::solve`]。
-//! - 可視化やステップ実行には [`Solver::next_step`] / [`Solver::hint`]。
-//!   `next_step()` は「`hint()` が返す確定を盤面に適用する」ことそのもの
-//!   なので、**両者が食い違うことは構成上あり得ない**。
-//!
-//! どちらの経路も同じ規則群の閉包に到達する（片方だけが確定できるマスは
-//! ない）。ユーザーが盤面を埋めながらヒントを受けるような対話的な用途には
-//! [`crate::Session`] を使うこと。
+//! フルソルブは [`Solver::solve`]、可視化やステップ実行は
+//! [`Solver::next_step`] / [`Solver::hint`]。どちらの経路も同じ閉包
+//! （同じ最終盤面）に到達する。対話的な用途には [`crate::Session`] を使う。
 
 use crate::analysis::LineAnalysis;
 use crate::clue::{Clues, LineId};
@@ -22,11 +13,8 @@ use std::fmt;
 use std::ops::Range;
 use thiserror::Error;
 
-/// 推論を尽くしたときの結果。
-///
-/// どちらも「矛盾なく推論が終わった」ことを表す正常な値であり、
-/// 一意に解けないことはエラーではない（旧設計の `Indeterminate` は
-/// `Err` だったが、部分盤面を読み出す正常ルートを歪めていた）。
+/// 推論を尽くしたときの結果。どちらも「矛盾なく推論が終わった」ことを
+/// 表す正常な値で、一意に解けないことはエラーではない。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Outcome {
     /// 全マスが一意に確定した。
@@ -37,10 +25,7 @@ pub enum Outcome {
 }
 
 /// 推論中に見つかった矛盾。制約を満たす解が存在しない。
-///
-/// 座標はすべて盤面座標（`row`/`col`）。旧設計にあった
-/// 「行内座標と盤面座標の混在（転置バグ）」は、セル状態の所有者が
-/// [`Grid`] 一枚になったことで構造的に起こらない。
+/// 座標はすべて盤面座標（`row`/`col`）。
 #[derive(Clone, PartialEq, Eq, Debug, Error)]
 pub enum Contradiction {
     /// `line` 上の推論が根拠 `reason` でセル `(row, col)` を `attempted` に
@@ -99,11 +84,9 @@ pub struct HintBlock {
 
 /// 確定の根拠まで含む、自己完結したヒント。
 ///
-/// `step` に加えて、その `step` を算出したのと**同一のスナップショット**
-/// （同じ `LineAnalysis`）から読み出した行コンテキストを
-/// 持つ。`candidates`/`blocks` は常に `step` と矛盾なく組み合わせて説明文を
-/// 組み立てられる。人間向けの文言化はUI層の仕事とし、ここでは行の生データ
-/// だけを持つ（実例は `examples/solve.rs`）。
+/// `candidates`/`blocks` は `step` を算出したのと同一のスナップショットから
+/// 読み出した行コンテキストで、常に `step` と整合する。人間向けの文言化は
+/// UI層の仕事（実例は `examples/solve.rs`）。
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Hint {
     /// 次に実行できる確定操作。[`Solver::next_step`] が次に行うことと同一。
@@ -116,10 +99,8 @@ pub struct Hint {
 
 /// 制約（＋任意で初期盤面）を受け取って推論する、ルールベースのエンジン。
 ///
-/// 盤面はこの `Solver` が所有する [`Grid`] 一枚だけで、外部から書き換える
-/// 手段は持たない。対話的な用途（ユーザーが盤面を埋めながらヒントや
-/// 間違いチェックを受ける）には、この `Solver` を毎回使い捨てで組み立てる
-/// 薄い層である [`crate::Session`] を使うこと。
+/// 構築後に外部から盤面を書き換える手段は持たない。対話的な用途には
+/// [`crate::Session`] を使う。
 ///
 /// # 使用例
 ///
@@ -141,9 +122,8 @@ pub struct Solver {
     clues: Clues,
     grid: Grid,
     /// まだ推論し尽くしていない可能性のある行・列のワークリスト。
-    /// あくまでエンジンの巡回予定表であって真実は持たない（真実は
-    /// `clues` と `grid` だけ）。不変条件: セルが書き換わったら、その
-    /// セルを含む行・列は消化されるまでこのリストに載っている。
+    /// 不変条件: セルが書き換わったら、そのセルを含む行・列は
+    /// 消化されるまでこのリストに載っている。
     dirty: VecDeque<LineId>,
     /// `dirty` への重複投入を防ぐフラグ（[`Solver::ordinal`] 添字）。
     in_queue: Vec<bool>,
@@ -181,8 +161,7 @@ impl Solver {
     }
 
     fn from_parts(clues: Clues, grid: Grid) -> Self {
-        // 全行・全列を dirty で開始する。種の盤面（with_grid）の情報も
-        // 特別扱いなしに最初の巡回で消化される。
+        // 全行・全列を dirty で開始し、種の盤面の情報も最初の巡回で消化する。
         let dirty: VecDeque<LineId> = clues.lines().collect();
         let in_queue = vec![true; clues.height() + clues.width()];
         Self {
@@ -292,8 +271,7 @@ impl Solver {
     /// `Ok(None)`。分析の過程で矛盾を見つけたら `Err`。
     ///
     /// 返る [`Hint`] の `step` は、次に [`Solver::next_step`] を呼んだ場合に
-    /// 実行される操作と同一（`next_step` は「`hint` を適用する」ことそのもの
-    /// として実装されている）。
+    /// 実行される操作と同一。
     pub fn hint(&self) -> Result<Option<Hint>, Contradiction> {
         // 行の分析は純関数なので、規則をまたいで使い回せる（遅延計算）。
         let lines: Vec<LineId> = self.clues.lines().collect();

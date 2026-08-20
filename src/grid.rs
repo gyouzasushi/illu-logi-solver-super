@@ -1,9 +1,6 @@
-//! 盤面。セル状態の唯一の所有者となる値型。
+//! 盤面。セル状態を持つだけの値型。
 //!
-//! 旧設計（行の `Line` と列の `Line` が同じセルを独立に保持し手動同期する）
-//! と異なり、セル状態はこの [`Grid`] 一枚だけが持つ。行・列としての
-//! 読み出しは [`crate::LineId`] 経由で行い、座標変換は
-//! [`crate::LineId::cell`] に集約される。
+//! 行・列としての読み出しは [`crate::LineId`] 経由で行う。
 
 use crate::clue::{Clues, LineId};
 use std::fmt;
@@ -21,10 +18,6 @@ pub enum CellState {
 }
 
 /// 推論が書き込む確定色。白か黒のみで、`Unconfirmed` を表現できない。
-///
-/// 推論結果として「未確定」を書き込むという本来あり得ない経路を
-/// 型レベルで排除するため、[`crate::Deduction`] や
-/// [`crate::Solver`] の書き込み経路はこの型を使う。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Color {
     /// 白（塗らない）。
@@ -131,10 +124,8 @@ impl Grid {
         self.cells[self.index(row, col)]
     }
 
-    /// セル `(row, col)` を `state` にする（未確定への巻き戻しも自由な、
-    /// ただの代入）。ユーザー操作を反映する用途（[`crate::Session::set`]）
-    /// のための書き込みで、推論の書き込みには矛盾検出付きの
-    /// `Grid::paint`（クレート内部専用）が使われる。
+    /// セル `(row, col)` を `state` にする
+    /// （[`CellState::Unconfirmed`] への巻き戻しも可）。
     pub fn set(&mut self, row: usize, col: usize, state: CellState) {
         let index = self.index(row, col);
         self.cells[index] = state;
@@ -236,7 +227,6 @@ impl fmt::Display for Grid {
 
 /// 1盤面をテキスト行のリストとして描画する。`cell(row, col)` はセルの
 /// 表示文字（1文字幅）を返す。5行・5列ごとに区切り線／区切り文字を挟む。
-/// 盤面の描き方（罫線の間隔など）を変えるときはここ1箇所を直せばよい。
 pub(crate) fn render_board(
     height: usize,
     width: usize,

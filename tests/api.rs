@@ -1,11 +1,9 @@
 //! 公開APIの仕様テスト。
 //!
 //! - 実在パズル（10x10〜30x30）のフルソルブ
-//! - 矛盾・入力検証のエラー形状（座標が盤面座標であること＝旧転置バグの再発防止）
+//! - 矛盾・入力検証のエラー形状（座標が盤面座標であること）
 //! - `hint()` と `next_step()` の同一性、`solve()` と逐次実行の閉包一致
-//!   （新設計の柱2つのプロパティテスト）
-//! - `Session` の仕様（旧実装の実証済みバグ Bug 1 / Bug 2 が
-//!   「発生し得ない設計」であることの回帰テストを含む）
+//! - `Session` の仕様
 use illu_logi_solver_super::*;
 use std::time::Instant;
 
@@ -217,14 +215,10 @@ fn test_no_solution() {
     ));
 }
 
-// 旧実装で実証された Bug 3（矛盾エラーの座標が転置される）の再発防止。
+// 矛盾エラーの座標は盤面座標のまま報告される（転置されない）。
 //
-// 真の矛盾は列0にある: 列0の制約 [1, 3] は列0をちょうど埋める配置
-// （黒・白・黒黒黒）を要求するが、行0・行2〜4の制約が空（全マス白）のため
-// 列0の制約がどこにも配置できない。旧実装はこれを転置された座標
-// Row[0][1] で報告していた。新設計ではセル状態の所有者が Grid 一枚なので
-// 「行内座標と盤面座標の混在」が構造的に起こらず、矛盾は検出した列
-// （Col(0)）または盤面座標のまま報告される。
+// 列0の制約 [1, 3] は列0をちょうど埋める配置（黒・白・黒黒黒）を要求するが、
+// 行0・行2〜4の制約が空（全マス白）のため、どこにも配置できない。
 #[test]
 fn test_contradiction_coordinates_are_not_transposed() {
     let mut solver = Solver::new(
@@ -357,9 +351,7 @@ fn random_clues(height: usize, width: usize, rng: &mut XorShift) -> Clues {
     .unwrap()
 }
 
-// プロパティ (a): hint() は next_step() が次に行う操作と常に同一。
-// next_step() は「hint() を適用する」ことそのものとして実装されているが、
-// 実在パズルのステップ列全体で最後まで食い違わないことを外形的にも固定する。
+// hint() は next_step() が次に行う操作と常に同一。
 #[test]
 fn property_hint_equals_next_step() {
     let mut rng = XorShift(0x0123456789ABCDEF);
@@ -382,8 +374,7 @@ fn property_hint_equals_next_step() {
     }
 }
 
-// プロパティ (b): solve()（バッチのワークリスト処理）と next_step() の
-// 逐次実行は同じ閉包（最終盤面）に到達する。
+// solve() と next_step() の逐次実行は同じ閉包（最終盤面）に到達する。
 #[test]
 fn property_solve_equals_stepwise_closure() {
     let mut rng = XorShift(0xFEDCBA9876543210);
@@ -448,13 +439,10 @@ fn test_session_rollback() {
     assert_eq!(grid, solved.grid().clone());
 }
 
-// 旧実装で実証された Bug 1 の再現シナリオ: 黒 → 未確定 に巻き戻したとき、
-// 旧実装では行内部のセグメント情報が残留して judge が誤判定した。
-// Session は judge のたびに現盤面から使い捨てソルバを組み立てる
-// （そもそも巻き戻し可能な可変状態を推論側に持たない）ため、
-// 残留自体が発生しない。
+// 黒 → 未確定 → 白 と書き換えても、その後正解を置けば judge は真になる
+// （巻き戻しが後の判定に影響を残さない）。
 #[test]
-fn test_session_bug1_unconfirmed_rollback_then_correct_placement_judges_true() {
+fn test_session_judge_after_unconfirmed_rollback() {
     let clues = Clues::new(vec![vec![1], vec![1]], vec![vec![1], vec![1]]).unwrap();
     let mut session = Session::new(clues);
     session.set(0, 0, CellState::Black);
@@ -466,13 +454,9 @@ fn test_session_bug1_unconfirmed_rollback_then_correct_placement_judges_true() {
     assert!(session.judge());
 }
 
-// 旧実装で実証された Bug 2 の再現シナリオ: 推論し尽くした後に情報を
-// 追加しても、旧実装ではキューに再投入されず何も推論されなかった。
-// Session::deduce は呼ばれるたびに新品のソルバを組み立てるので
-// 「キューの消化」という概念自体が存在せず、追加の set がそのまま
-// 次の deduce に伝播する。
+// 一度 deduce し尽くした後に置いた set も、次の deduce にそのまま反映される。
 #[test]
-fn test_session_bug2_set_after_exhausted_deduce_propagates() {
+fn test_session_set_after_deduce_propagates() {
     let clues = Clues::new(vec![vec![1], vec![1]], vec![vec![1], vec![1]]).unwrap();
     let mut session = Session::new(clues);
     // 2通りの解があり確定しないが、deduce は部分盤面（全 Unconfirmed）を Ok で返す。
@@ -521,8 +505,7 @@ fn test_mistakes_ignores_unfilled_cells() {
 }
 
 // 制約だけからは一切確定しないパズルでは、mistakes は誰の記入も
-// 「間違い」と指摘しない（best-effort 設計: Session::mistakes の
-// docコメント参照）。
+// 「間違い」と指摘しない（Session::mistakes のdocコメント参照）。
 #[test]
 fn test_mistakes_reports_nothing_when_clues_alone_are_fully_ambiguous() {
     let clues = Clues::new(vec![vec![1], vec![1]], vec![vec![1], vec![1]]).unwrap();

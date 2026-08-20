@@ -9,9 +9,6 @@
 //! 長方形（`height != width`）のケースも含める。正方形の盤面だけでは
 //! 高さ・幅の取り違え（転置バグ）をテストが検出できない
 //! （正方形は転置しても同じ形になるため）。
-//!
-//! シード・件数は旧実装（`illu-logi-solver`）の同名テストと同一で、
-//! 同じ盤面集合に対して同じ保証が成り立つことを確認している。
 use illu_logi_solver_super::*;
 
 fn clues_of(grid: &[Vec<bool>]) -> Clues {
@@ -119,8 +116,7 @@ fn brute_force_10x10_random() {
     }
 }
 
-// 長方形（height != width）盤面。i/j の取り違え（転置バグ）は正方形では
-// 検出できないため、非正方形での回帰テストを必須で持つ。
+// 長方形（height != width）盤面での転置バグの回帰テスト。
 #[test]
 fn brute_force_5x8_random() {
     let mut rng = XorShift(0x1D4E228DAB7A0F63);

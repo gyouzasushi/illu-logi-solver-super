@@ -11,8 +11,7 @@ use thiserror::Error;
 ///
 /// `Row(i)` は上から `i` 番目の行、`Col(j)` は左から `j` 番目の列（いずれも
 /// 0始まり）。行・列内の位置（オフセット）と盤面座標 `(row, col)` の変換は
-/// [`LineId::cell`] と [`LineId::orthogonal_at`] に集約されており、
-/// 転置ミスが混入し得る箇所をクレート内でこの2メソッドだけに閉じ込めている。
+/// [`LineId::cell`] と [`LineId::orthogonal_at`] で行う。
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum LineId {
     /// 上から `0` 番目の行（横方向の1本）。
@@ -169,8 +168,6 @@ impl Clues {
 mod tests {
     use super::*;
 
-    // LineId::cell / orthogonal_at はクレート内で唯一の転置点なので、
-    // 両方向を明示的に固定する。
     #[test]
     fn line_id_is_the_single_transposition_point() {
         assert_eq!(LineId::Row(3).cell(7), (3, 7));
