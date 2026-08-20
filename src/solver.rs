@@ -131,19 +131,16 @@ pub struct Solver {
 }
 
 impl Solver {
-    /// 制約から空盤面のソルバを構築する
-    ///
-    /// 制約は [`Clues::new`] で検証済みなので、この構築は失敗しない
+    /// 制約から空盤面のソルバを作る
     pub fn new(clues: Clues) -> Self {
         let grid = Grid::new(clues.height(), clues.width());
         Self::from_parts(clues, grid)
     }
 
-    /// 確定済みのセルを含む盤面を種にしてソルバを構築する
+    /// 確定済みのセルを含む盤面を種にしてソルバを作る
     ///
-    /// 盤面の次元が制約の次元（`height` 行 × `width` 列）と一致することを
-    /// 検証する。種の盤面が矛盾しているかどうかはここでは調べず、後続の
-    /// [`Solver::solve`] / [`Solver::hint`] が推論の過程で検出する
+    /// 検証するのは盤面と制約の次元が一致することだけ。種の盤面が
+    /// 矛盾していないかは、後続の推論の過程で検出される
     pub fn with_grid(clues: Clues, grid: Grid) -> Result<Self, GridMismatch> {
         if grid.height() != clues.height() {
             return Err(GridMismatch::HeightMismatch {
@@ -234,14 +231,13 @@ impl Solver {
 
     /// 確定できる限り推論し尽くす
     ///
-    /// 8規則で確定できるマスをすべて埋め切ったら [`Outcome::Solved`]、
-    /// 矛盾なく推論が尽きても未確定マスが残る（＝この規則群では一意に
-    /// 確定できない）場合は [`Outcome::Stuck`] を返す。どちらの場合も
-    /// 盤面は [`Solver::grid`] で読み出せる。矛盾を見つけたら
-    /// `Err(Contradiction)` を返す
+    /// - 全マス確定したら [`Outcome::Solved`]
+    /// - 矛盾なく推論が尽きても未確定マスが残るなら [`Outcome::Stuck`]
+    ///   （どちらも盤面は [`Solver::grid`] で読める）
+    /// - 矛盾を見つけたら `Err(Contradiction)`
     ///
     /// [`Solver::next_step`] を繰り返すのと同じ閉包に到達するが、
-    /// 1ステップごとに全行を探索し直さないぶん速い（30×30で数ms）
+    /// 1ステップごとに全行を探索し直さないぶん速い（30×30 で数 ms）
     pub fn solve(&mut self) -> Result<Outcome, Contradiction> {
         let mut buf = Vec::new();
         let mut deductions = Vec::new();

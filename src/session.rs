@@ -41,7 +41,7 @@ pub struct Session {
 }
 
 impl Session {
-    /// 制約から空盤面のセッションを作る（[`Clues`] は検証済みなので失敗しない）
+    /// 制約から空盤面のセッションを作る
     pub fn new(clues: Clues) -> Self {
         let grid = Grid::new(clues.height(), clues.width());
         Self {
