@@ -334,12 +334,12 @@ impl Solver {
         Ok(Some(hint.step))
     }
 
-    /// 検証済みの制約への参照。
+    /// パズルの制約。
     pub fn clues(&self) -> &Clues {
         &self.clues
     }
 
-    /// 現在の盤面への参照。
+    /// 現在の盤面。
     pub fn grid(&self) -> &Grid {
         &self.grid
     }
