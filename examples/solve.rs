@@ -1,4 +1,4 @@
-//! テキスト形式のパズルを読み込んで解くCLIデモ。
+//! テキスト形式のパズルを読み込んで解くCLIデモ
 //!
 //! ```sh
 //! cargo run --example solve -- examples/data/15x15.txt
@@ -7,9 +7,9 @@
 //!
 //! 入力形式: 空行より前が行の制約（上から）、後が列の制約（左から）。
 //! 各行は黒マスの連続長を空白区切りで並べ、空の制約（全マス白）は `-`。
-//! `#` で始まる行はコメント。ファイルを省略すると標準入力から読む。
+//! `#` で始まる行はコメント。ファイルを省略すると標準入力から読む
 //!
-//! `--steps` を付けると1手ずつ実行し、各手の根拠を日本語で説明する。
+//! `--steps` を付けると1手ずつ実行し、各手の根拠を日本語で説明する
 
 use illu_logi_solver_super::*;
 use std::fmt::Write as _;
@@ -56,7 +56,7 @@ fn parse_puzzle(text: &str) -> Result<Clues, String> {
     Clues::new(rows, cols).map_err(|e| format!("制約が不正です: {e}"))
 }
 
-/// `Hint` を日本語の説明文にする。
+/// `Hint` を日本語の説明文にする
 fn describe(hint: &Hint) -> String {
     let step = &hint.step;
     let line = match step.line {

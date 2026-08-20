@@ -1,79 +1,79 @@
-//! 8つの行内推論規則。
+//! 8つの行内推論規則
 //!
 //! 各規則は、1本の行・列の分析結果 [`LineAnalysis`] から確定できる塗り
-//! [`Deduction`] を列挙するだけの純関数。
+//! [`Deduction`] を列挙するだけの純関数
 //!
 //! [`RULES`] の並び順は「人間にとって気づきやすい・計算が安い」順で、
-//! [`crate::Solver::hint`] はこの順に規則を試して最初に見つかった確定を返す。
+//! [`crate::Solver::hint`] はこの順に規則を試して最初に見つかった確定を返す
 
 use crate::analysis::{LineAnalysis, SetMinMax};
 use crate::grid::{CellState, Color};
 use std::ops::Range;
 
-/// 確定の根拠。8つの行内推論規則のどれで確定できたか。
+/// 確定の根拠。8つの行内推論規則のどれで確定できたか
 ///
 /// ペイロードは塗った範囲そのものではなく**根拠の区間・ID**。例えば
 /// [`Reason::BlackIfLeftBounded`] の `(l, r)` は根拠の区間であり、塗る範囲
 /// （[`Deduction::range`]）はその部分集合になる。説明に必要な行コンテキスト
-/// （候補ID範囲・ブロックの配置可能範囲）は [`crate::Hint`] 側が持つ。
+/// （候補ID範囲・ブロックの配置可能範囲）は [`crate::Hint`] 側が持つ
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Reason {
     /// ブロック `id` を配置可能範囲の左端に寄せても右端に寄せても
-    /// `[l, r)` は必ず黒になる（最左配置と最右配置の重複部分）。
+    /// `[l, r)` は必ず黒になる（最左配置と最右配置の重複部分）
     BlackIfOverlap {
-        /// 重複区間の左端。
+        /// 重複区間の左端
         l: usize,
-        /// 重複区間の右端（半開区間）。
+        /// 重複区間の右端（半開区間）
         r: usize,
-        /// 根拠ブロックのID（0始まり）。
+        /// 根拠ブロックのID（0始まり）
         id: usize,
     },
     /// 非白領域 `[l, r)` は両端が白（または盤端）で区切られており、
-    /// 中の全セルの候補ブロックの最小サイズが領域長以上なので全体が黒。
+    /// 中の全セルの候補ブロックの最小サイズが領域長以上なので全体が黒
     BlackIfBounded(usize, usize),
     /// 黒セルを含む非白領域の左端 `l` が確定しているため、候補ブロックの
-    /// 最小サイズぶん右の `r` まで黒が続く。
+    /// 最小サイズぶん右の `r` まで黒が続く
     BlackIfLeftBounded(usize, usize),
     /// 黒セルを含む非白領域の右端 `r` が確定しているため、候補ブロックの
-    /// 最小サイズぶん左の `l` まで黒が続く。
+    /// 最小サイズぶん左の `l` まで黒が続く
     BlackIfRightBounded(usize, usize),
     /// 黒連続区間 `[l, r)` の長さが候補ブロックの最大サイズと一致し、
-    /// これ以上は延びないので両隣は白。
+    /// これ以上は延びないので両隣は白
     WhiteIfSegmentComplete(usize, usize),
-    /// セル `j` を黒にすると、唯一の候補ブロックのサイズを超えてしまうので白。
+    /// セル `j` を黒にすると、唯一の候補ブロックのサイズを超えてしまうので白
     WhiteIfTooLong {
-        /// 白だと確定できるセルの位置。
+        /// 白だと確定できるセルの位置
         j: usize,
-        /// そのセルの唯一の候補ブロックのID（0始まり）。
+        /// そのセルの唯一の候補ブロックのID（0始まり）
         id: usize,
     },
     /// 両端が白（または盤端）で区切られた未確定領域 `[l, r)` が、そこを
-    /// 覆い得るブロックの最小サイズより短いので全体が白。
+    /// 覆い得るブロックの最小サイズより短いので全体が白
     WhiteIfTooShort(usize, usize),
-    /// どのブロックも `[l, r)` を覆えない（候補ブロックが空）ので白。
+    /// どのブロックも `[l, r)` を覆えない（候補ブロックが空）ので白
     WhiteIfNoBlockCovers(usize, usize),
 }
 
-/// 1件の確定: 行・列内の「どの範囲を・どちらの色に・なぜ」塗れるか。
+/// 1件の確定: 行・列内の「どの範囲を・どちらの色に・なぜ」塗れるか
 ///
 /// `range`/`color` が「どこを・何色に塗るか」、`reason` が「なぜ塗れると
 /// 分かったか」という役割分担。座標は行・列内のオフセット
-/// （盤面座標への変換は [`crate::LineId::cell`]）。
+/// （盤面座標への変換は [`crate::LineId::cell`]）
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Deduction {
-    /// 塗る範囲（行・列内のオフセットの半開区間）。
+    /// 塗る範囲（行・列内のオフセットの半開区間）
     pub range: Range<usize>,
-    /// 塗る色。
+    /// 塗る色
     pub color: Color,
-    /// 確定の根拠。
+    /// 確定の根拠
     pub reason: Reason,
 }
 
-/// 1つの推論規則: 分析結果から確定できる塗りを `out` に追加する純関数。
+/// 1つの推論規則: 分析結果から確定できる塗りを `out` に追加する純関数
 pub(crate) type Rule = fn(&LineAnalysis, &mut Vec<Deduction>);
 
 /// 8規則を「安い・気づきやすい」順に並べた配列。
-/// [`crate::Solver::hint`] はこの順で最初に見つかった確定を返す。
+/// [`crate::Solver::hint`] はこの順で最初に見つかった確定を返す
 pub(crate) const RULES: [Rule; 8] = [
     black_if_overlap,
     black_if_bounded,
@@ -86,10 +86,10 @@ pub(crate) const RULES: [Rule; 8] = [
 ];
 
 /// 確定を `out` に積む。新規性のないもの（空範囲、または範囲内の全セルが
-/// 既に目標色）は捨てる。
+/// 既に目標色）は捨てる
 ///
 /// [`crate::Solver::hint`] は「規則が何かを返した ＝ 新しい確定がある」を
-/// 前提にしているため、規則は必ずこのヘルパを経由すること。
+/// 前提にしているため、規則は必ずこのヘルパを経由すること
 fn emit(
     analysis: &LineAnalysis,
     out: &mut Vec<Deduction>,
@@ -113,7 +113,7 @@ fn emit(
     });
 }
 
-// 最左配置と最右配置の重複部分は必ず黒。
+// 最左配置と最右配置の重複部分は必ず黒
 fn black_if_overlap(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     for (id, block) in a.blocks.iter().enumerate() {
         let l = block.possible_placement.start;
@@ -132,7 +132,7 @@ fn black_if_overlap(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     }
 }
 
-// 両端が確定した非白領域で全セルの候補ブロックの最小サイズが領域長以上なら全体が黒。
+// 両端が確定した非白領域で全セルの候補ブロックの最小サイズが領域長以上なら全体が黒
 fn black_if_bounded(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     for &(l, r) in &a.non_white_segments {
         if (l..r).all(|j| a.cells[j] == CellState::Unconfirmed) {
@@ -145,7 +145,7 @@ fn black_if_bounded(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     }
 }
 
-// 非白領域の左端が確定しているとき、最小ブロックサイズ分だけ右へ黒を延ばせる。
+// 非白領域の左端が確定しているとき、最小ブロックサイズ分だけ右へ黒を延ばせる
 fn black_if_left_bounded(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     for &(j, _) in &a.black_segments {
         let l = a.non_white_left(j);
@@ -166,7 +166,7 @@ fn black_if_left_bounded(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     }
 }
 
-// 非白領域の右端が確定しているとき、最小ブロックサイズ分だけ左へ黒を延ばせる。
+// 非白領域の右端が確定しているとき、最小ブロックサイズ分だけ左へ黒を延ばせる
 fn black_if_right_bounded(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     for &(_, seg_r) in &a.black_segments {
         let j = seg_r - 1;
@@ -194,7 +194,7 @@ fn black_if_right_bounded(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     }
 }
 
-// 黒連続区間の長さが候補ブロックの最大サイズと一致すれば両隣は白。
+// 黒連続区間の長さが候補ブロックの最大サイズと一致すれば両隣は白
 fn white_if_segment_complete(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     for &(l, r) in &a.black_segments {
         if (l == 0 || a.cells[l - 1] == CellState::White)
@@ -229,7 +229,7 @@ fn white_if_segment_complete(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     }
 }
 
-// このセルを黒にすると唯一の候補ブロックのサイズを超えるなら白。
+// このセルを黒にすると唯一の候補ブロックのサイズを超えるなら白
 fn white_if_too_long(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     for j in 0..a.n() {
         if !(a.cells[j] == CellState::Unconfirmed && a.candidates[j].len() == 1) {
@@ -255,7 +255,7 @@ fn white_if_too_long(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     }
 }
 
-// 両端が確定した未確定領域の最小ブロックサイズが領域長を超えるなら全体が白。
+// 両端が確定した未確定領域の最小ブロックサイズが領域長を超えるなら全体が白
 fn white_if_too_short(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     for &(l, r) in &a.unconfirmed_segments {
         if l > 0 && a.cells[l - 1] != CellState::White {
@@ -270,7 +270,7 @@ fn white_if_too_short(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     }
 }
 
-// どのブロックにも属せないセルは白。
+// どのブロックにも属せないセルは白
 fn white_if_no_block_covers(a: &LineAnalysis, out: &mut Vec<Deduction>) {
     let mut l = 0;
     while l < a.n() {
@@ -310,7 +310,7 @@ mod tests {
     }
 
     /// セル状態と制約を持ち、`run` で「分析 → 指定規則を実行 →
-    /// 確定をセルに適用」を1回分行うテストハーネス。
+    /// 確定をセルに適用」を1回分行うテストハーネス
     struct Fixture {
         blocks: Vec<usize>,
         cells: Vec<CellState>,
@@ -370,7 +370,7 @@ mod tests {
         assert_eq!(f.confirmed_id(2), Some(0));
         assert_eq!(f.confirmed_id(4), Some(1));
 
-        // ブロック0（サイズ1）はセル0にしか置けないので黒に確定する。
+        // ブロック0（サイズ1）はセル0にしか置けないので黒に確定する
         let mut f = Fixture::new(vec![1, 2], ".xoo.");
         f.run(&[black_if_overlap]);
         f.assert_cells("oxoo.");
@@ -400,7 +400,7 @@ mod tests {
         f.run(&[white_if_segment_complete]);
         f.assert_cells("...xoox...");
 
-        // 左右が既に白で確定済みのセグメントは正しくスキップされる。
+        // 左右が既に白で確定済みのセグメントは正しくスキップされる
         let mut f = Fixture::new(vec![2, 2], "xoox.....");
         f.run(&[white_if_segment_complete]);
         f.assert_cells("xoox.....");
@@ -483,13 +483,13 @@ mod tests {
     }
 
     // emit の新規性フィルタ: 既に塗り終えた確定は報告されない。
-    // これが破れると hint()/next_step() が同じ確定を返し続けて前へ進まなくなる。
+    // これが破れると hint()/next_step() が同じ確定を返し続けて前へ進まなくなる
     #[test]
     fn rules_do_not_reemit_applied_deductions() {
         let mut f = Fixture::new(vec![4], ".....");
         f.run(&RULES);
         f.assert_cells(".ooo.");
-        // 2周目: 盤面はもう変わらないので、新規の確定は出ない。
+        // 2周目: 盤面はもう変わらないので、新規の確定は出ない
         let analysis = f.analysis();
         let mut deductions = Vec::new();
         for rule in RULES {

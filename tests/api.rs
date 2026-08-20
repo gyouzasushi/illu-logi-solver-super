@@ -1,4 +1,4 @@
-//! 公開APIの仕様テスト。
+//! 公開APIの仕様テスト
 //!
 //! - 実在パズル（10x10〜30x30）のフルソルブ
 //! - 矛盾・入力検証のエラー形状（座標が盤面座標であること）
@@ -169,7 +169,7 @@ fn test_30x30() {
     let elapsed = start.elapsed();
     assert!(solver.judge());
     // 性能の tripwire。実測は release で ~1ms / debug で ~10ms のオーダー。
-    // これを大きく超えたら solve のホットパスが退行している。
+    // これを大きく超えたら solve のホットパスが退行している
     let limit_ms = if cfg!(debug_assertions) { 2_000 } else { 50 };
     println!("30x30 solve: {elapsed:?}");
     assert!(
@@ -180,7 +180,7 @@ fn test_30x30() {
 
 #[test]
 fn test_indeterminate_puzzle_is_stuck_not_error() {
-    // 2通りの解がある盤面。一意に解けないのはエラーではなく Stuck。
+    // 2通りの解がある盤面。一意に解けないのはエラーではなく Stuck
     let clues = Clues::new(vec![vec![1], vec![1]], vec![vec![1], vec![1]]).unwrap();
     let mut solver = Solver::new(clues);
     assert_eq!(solver.solve(), Ok(Outcome::Stuck));
@@ -215,10 +215,10 @@ fn test_no_solution() {
     ));
 }
 
-// 矛盾エラーの座標は盤面座標のまま報告される（転置されない）。
+// 矛盾エラーの座標は盤面座標のまま報告される（転置されない）
 //
 // 列0の制約 [1, 3] は列0をちょうど埋める配置（黒・白・黒黒黒）を要求するが、
-// 行0・行2〜4の制約が空（全マス白）のため、どこにも配置できない。
+// 行0・行2〜4の制約が空（全マス白）のため、どこにも配置できない
 #[test]
 fn test_contradiction_coordinates_are_not_transposed() {
     let mut solver = Solver::new(
@@ -233,7 +233,7 @@ fn test_contradiction_coordinates_are_not_transposed() {
             assert_eq!(line, LineId::Col(0));
         }
         Err(Contradiction::CellConflict { row: _, col, .. }) => {
-            // CellConflict として現れる場合も、矛盾セルは列0上（盤面座標）。
+            // CellConflict として現れる場合も、矛盾セルは列0上（盤面座標）
             assert_eq!(col, 0);
         }
         other => panic!("expected a contradiction, got {other:?}"),
@@ -242,14 +242,14 @@ fn test_contradiction_coordinates_are_not_transposed() {
 
 #[test]
 fn test_invalid_clues_are_rejected() {
-    // ブロックサイズ 0 は拒否される。
+    // ブロックサイズ 0 は拒否される
     assert_eq!(
         Clues::new(vec![vec![0]], vec![vec![1]]),
         Err(ClueError::ZeroBlock {
             line: LineId::Row(0)
         })
     );
-    // sum + gaps > 線長 は拒否される。
+    // sum + gaps > 線長 は拒否される
     assert_eq!(
         Clues::new(
             vec![vec![3, 1], vec![], vec![]],
@@ -260,7 +260,7 @@ fn test_invalid_clues_are_rejected() {
             len: 3
         })
     );
-    // with_grid は盤面の次元と制約の次元の整合を検証する。
+    // with_grid は盤面の次元と制約の次元の整合を検証する
     let clues = Clues::new(vec![vec![1]], vec![vec![1]]).unwrap();
     assert_eq!(
         Solver::with_grid(clues.clone(), Grid::new(2, 1)).err(),
@@ -287,10 +287,10 @@ fn test_hint_is_self_consistent() {
     .unwrap();
     let mut solver = Solver::new(clues.clone());
     let hint = solver.hint().unwrap().expect("a hint should be available");
-    // candidates は塗る範囲と同じ並び・同じ長さで、各セルの候補ブロックが揃う。
+    // candidates は塗る範囲と同じ並び・同じ長さで、各セルの候補ブロックが揃う
     assert_eq!(hint.candidates.len(), hint.step.deduction.range.len());
     assert!(hint.candidates.iter().all(|ids| !ids.is_empty()));
-    // blocks は step.line の制約と同じ本数・同じサイズ列で揃っている。
+    // blocks は step.line の制約と同じ本数・同じサイズ列で揃っている
     let expected_sizes = clues.blocks(hint.step.line);
     assert_eq!(
         hint.blocks.iter().map(|b| b.size).collect::<Vec<_>>(),
@@ -301,7 +301,7 @@ fn test_hint_is_self_consistent() {
             .iter()
             .all(|b| b.possible_placement.start <= b.possible_placement.end)
     );
-    // changed は空でない（新規性フィルタを通った確定なので必ず何か塗れる）。
+    // changed は空でない（新規性フィルタを通った確定なので必ず何か塗れる）
     assert!(!hint.step.changed.is_empty());
     solver.solve().unwrap();
     assert!(solver.hint().unwrap().is_none());
@@ -351,7 +351,7 @@ fn random_clues(height: usize, width: usize, rng: &mut XorShift) -> Clues {
     .unwrap()
 }
 
-// hint() は next_step() が次に行う操作と常に同一。
+// hint() は next_step() が次に行う操作と常に同一
 #[test]
 fn property_hint_equals_next_step() {
     let mut rng = XorShift(0x0123456789ABCDEF);
@@ -374,7 +374,7 @@ fn property_hint_equals_next_step() {
     }
 }
 
-// solve() と next_step() の逐次実行は同じ閉包（最終盤面）に到達する。
+// solve() と next_step() の逐次実行は同じ閉包（最終盤面）に到達する
 #[test]
 fn property_solve_equals_stepwise_closure() {
     let mut rng = XorShift(0xFEDCBA9876543210);
@@ -402,7 +402,7 @@ fn property_solve_equals_stepwise_closure() {
     }
 }
 
-// with_grid: 確定済みセルを種にすると、そこから推論が進む。
+// with_grid: 確定済みセルを種にすると、そこから推論が進む
 #[test]
 fn test_with_grid_seeds_are_used() {
     let clues = Clues::new(vec![vec![1], vec![1]], vec![vec![1], vec![1]]).unwrap();
@@ -417,7 +417,7 @@ fn test_with_grid_seeds_are_used() {
 
 #[test]
 fn test_session_rollback() {
-    // 正解盤面から、矛盾なく置ける値を拾って set に使う。
+    // 正解盤面から、矛盾なく置ける値を拾って set に使う
     let mut solved = Solver::new(clues_for_10x10());
     solved.solve().unwrap();
     let correct = |i: usize, j: usize| solved.state(i, j);
@@ -428,19 +428,19 @@ fn test_session_rollback() {
     session.set(1, 1, correct(1, 1));
     assert_eq!(session.state(1, 1), correct(1, 1));
 
-    // 履歴を先頭1件に切り詰めると、それ以降の set は巻き戻る。
+    // 履歴を先頭1件に切り詰めると、それ以降の set は巻き戻る
     session.rollback(1);
     assert_eq!(session.state(0, 0), correct(0, 0));
     assert_eq!(session.state(0, 1), CellState::Unconfirmed);
     assert_eq!(session.state(1, 1), CellState::Unconfirmed);
 
-    // 巻き戻し後も deduce/judge は現盤面から使い捨てソルバで正しく動く。
+    // 巻き戻し後も deduce/judge は現盤面から使い捨てソルバで正しく動く
     let grid = session.deduce().expect("この10x10は一意に解けるはず");
     assert_eq!(grid, solved.grid().clone());
 }
 
 // 黒 → 未確定 → 白 と書き換えても、その後正解を置けば judge は真になる
-// （巻き戻しが後の判定に影響を残さない）。
+// （巻き戻しが後の判定に影響を残さない）
 #[test]
 fn test_session_judge_after_unconfirmed_rollback() {
     let clues = Clues::new(vec![vec![1], vec![1]], vec![vec![1], vec![1]]).unwrap();
@@ -454,12 +454,12 @@ fn test_session_judge_after_unconfirmed_rollback() {
     assert!(session.judge());
 }
 
-// 一度 deduce し尽くした後に置いた set も、次の deduce にそのまま反映される。
+// 一度 deduce し尽くした後に置いた set も、次の deduce にそのまま反映される
 #[test]
 fn test_session_set_after_deduce_propagates() {
     let clues = Clues::new(vec![vec![1], vec![1]], vec![vec![1], vec![1]]).unwrap();
     let mut session = Session::new(clues);
-    // 2通りの解があり確定しないが、deduce は部分盤面（全 Unconfirmed）を Ok で返す。
+    // 2通りの解があり確定しないが、deduce は部分盤面（全 Unconfirmed）を Ok で返す
     let grid = session.deduce().unwrap();
     assert!(!grid.is_complete());
 
@@ -471,9 +471,9 @@ fn test_session_set_after_deduce_propagates() {
     assert_eq!(grid.get(1, 1), CellState::Black);
 }
 
-// Session::mistakes（間違い検出）のテスト。
+// Session::mistakes（間違い検出）のテスト
 //
-// 一意に解ける2x2: row0=[2]（両方黒）、row1=[]（両方白）。
+// 一意に解ける2x2: row0=[2]（両方黒）、row1=[]（両方白）
 fn clues_for_deterministic_2x2() -> Clues {
     Clues::new(vec![vec![2], vec![]], vec![vec![1], vec![1]]).unwrap()
 }
@@ -484,7 +484,7 @@ fn test_mistakes_no_mistakes_when_grid_matches_clues() {
     session.set(0, 0, CellState::Black);
     session.set(0, 1, CellState::Black);
     session.set(1, 0, CellState::White);
-    // (1,1) は未記入のまま。
+    // (1,1) は未記入のまま
     assert_eq!(session.mistakes().unwrap(), Vec::new());
 }
 
@@ -500,12 +500,12 @@ fn test_mistakes_detects_wrong_cells() {
 #[test]
 fn test_mistakes_ignores_unfilled_cells() {
     let session = Session::new(clues_for_deterministic_2x2());
-    // 何も置いていない盤面はどのマスも「間違い」ではない。
+    // 何も置いていない盤面はどのマスも「間違い」ではない
     assert_eq!(session.mistakes().unwrap(), Vec::new());
 }
 
 // 制約だけからは一切確定しないパズルでは、mistakes は誰の記入も
-// 「間違い」と指摘しない（Session::mistakes のdocコメント参照）。
+// 「間違い」と指摘しない（Session::mistakes のdocコメント参照）
 #[test]
 fn test_mistakes_reports_nothing_when_clues_alone_are_fully_ambiguous() {
     let clues = Clues::new(vec![vec![1], vec![1]], vec![vec![1], vec![1]]).unwrap();
@@ -515,7 +515,7 @@ fn test_mistakes_reports_nothing_when_clues_alone_are_fully_ambiguous() {
     assert_eq!(session.mistakes().unwrap(), Vec::new());
 }
 
-// 制約自体がどうやっても満たせない場合、mistakes はエラーを伝播する。
+// 制約自体がどうやっても満たせない場合、mistakes はエラーを伝播する
 #[test]
 fn test_mistakes_propagates_error_when_clues_are_unsatisfiable() {
     let session = Session::new(
@@ -528,14 +528,14 @@ fn test_mistakes_propagates_error_when_clues_are_unsatisfiable() {
     assert!(session.mistakes().is_err());
 }
 
-// Session::hint は現盤面（ユーザーの記入込み）を前提に次の1手を返す。
+// Session::hint は現盤面（ユーザーの記入込み）を前提に次の1手を返す
 #[test]
 fn test_session_hint_reflects_user_grid() {
     let clues = Clues::new(vec![vec![1], vec![1]], vec![vec![1], vec![1]]).unwrap();
     let mut session = Session::new(clues);
-    // まっさらな盤面では何も確定できない。
+    // まっさらな盤面では何も確定できない
     assert!(session.hint().unwrap().is_none());
-    // 1マス教えると次の1手が出る。
+    // 1マス教えると次の1手が出る
     session.set(0, 0, CellState::Black);
     let hint = session.hint().unwrap().expect("hint should be available");
     assert!(!hint.step.changed.is_empty());

@@ -1,4 +1,4 @@
-//! 総当たりによる健全性テスト。
+//! 総当たりによる健全性テスト
 //!
 //! 実在の盤面から制約を生成してソルバに与える。盤面が実在する以上、
 //! - `Err(Contradiction)` が返るのは確実にバグ
@@ -8,7 +8,7 @@
 //!
 //! 長方形（`height != width`）のケースも含める。正方形の盤面だけでは
 //! 高さ・幅の取り違え（転置バグ）をテストが検出できない
-//! （正方形は転置しても同じ形になるため）。
+//! （正方形は転置しても同じ形になるため）
 use illu_logi_solver_super::*;
 
 fn clues_of(grid: &[Vec<bool>]) -> Clues {
@@ -116,7 +116,7 @@ fn brute_force_10x10_random() {
     }
 }
 
-// 長方形（height != width）盤面での転置バグの回帰テスト。
+// 長方形（height != width）盤面での転置バグの回帰テスト
 #[test]
 fn brute_force_5x8_random() {
     let mut rng = XorShift(0x1D4E228DAB7A0F63);

@@ -1,4 +1,4 @@
-//! 規則セットの完全性の回帰テスト。
+//! 規則セットの完全性の回帰テスト
 //!
 //! 8規則の行推論を「完全な行推論（全配置列挙の不動点）」と比較し、
 //! 完全行推論なら解けるのに `Stuck` になる盤面（gap）の数が悪化していない
@@ -7,15 +7,15 @@
 //! solver_ok=6618 gap=2。
 //! gap の正体はセル毎の候補を `Range` で持つ表現が候補間の相関を表せない
 //! ことによる原理的限界で、規則の追加漏れではない。規則や候補管理を変更
-//! した際にここが増えたら推論力が退行している。
+//! した際にここが増えたら推論力が退行している
 //!
 //! 各テストの `max_gap` はここに固定した `XorShift` シード列挙で実測した
 //! 経験値であり、シードや列挙順を変えると gap の実現値も変わり得る。
-//! シードを変更する場合は許容上限も実測し直すこと。
+//! シードを変更する場合は許容上限も実測し直すこと
 use illu_logi_solver_super::*;
 
 // 現在の states と制約に整合する全配置を列挙し、
-// (黒になり得るマスク, 白になり得るマスク) を返す。整合配置ゼロなら None。
+// (黒になり得るマスク, 白になり得るマスク) を返す。整合配置ゼロなら None
 fn line_masks(states: &[CellState], blocks: &[usize]) -> Option<(u64, u64)> {
     let mut can_black = 0u64;
     let mut can_white = 0u64;
@@ -81,7 +81,7 @@ fn line_masks(states: &[CellState], blocks: &[usize]) -> Option<(u64, u64)> {
 }
 
 // 完全な行推論の不動点。全確定なら Some(true)、途中で止まれば Some(false)、矛盾は None。
-// axis/j は grid[i][j] と grid[j][i] を切り替えて使うため、enumerate() 化は適さない。
+// axis/j は grid[i][j] と grid[j][i] を切り替えて使うため、enumerate() 化は適さない
 #[allow(clippy::needless_range_loop)]
 fn dp_fixpoint(rows: &[Vec<usize>], cols: &[Vec<usize>]) -> Option<bool> {
     let n = rows.len();

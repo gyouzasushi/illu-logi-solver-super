@@ -1,13 +1,13 @@
-//! 1本の行・列の純関数的な分析。
+//! 1本の行・列の純関数的な分析
 //!
 //! [`LineAnalysis::compute`] は制約（ブロックサイズ列）と現在のセル状態だけを
 //! 入力に取り、各ブロックの配置可能範囲と各セルの候補ブロックID範囲を
-//! 不動点まで狭める。
+//! 不動点まで狭める
 
 use crate::grid::CellState;
 use std::ops::Range;
 
-/// `self` を `v` との min / max で更新し、変化したかを返す。
+/// `self` を `v` との min / max で更新し、変化したかを返す
 pub(crate) trait SetMinMax {
     fn setmin(&mut self, v: Self) -> bool;
     fn setmax(&mut self, v: Self) -> bool;
@@ -30,7 +30,7 @@ where
     }
 }
 
-/// `pred` を満たすセルの極大連続区間（半開区間）を左から順に列挙する。
+/// `pred` を満たすセルの極大連続区間（半開区間）を左から順に列挙する
 pub(crate) fn segments_of(
     cells: &[CellState],
     pred: impl Fn(CellState) -> bool,
@@ -51,47 +51,47 @@ pub(crate) fn segments_of(
     segments
 }
 
-/// 1ブロックの分析結果: 制約に書かれたサイズと、配置され得る範囲。
+/// 1ブロックの分析結果: 制約に書かれたサイズと、配置され得る範囲
 #[derive(Clone, Debug)]
 pub(crate) struct BlockInfo {
-    /// ブロックの長さ（制約に書かれた値そのもの）。
+    /// ブロックの長さ（制約に書かれた値そのもの）
     pub(crate) size: usize,
     /// ブロック全体（`size` マス分）が収まり得る範囲（半開区間）。
-    /// 先頭マスの取り得る位置は `start..=end - size`。
+    /// 先頭マスの取り得る位置は `start..=end - size`
     pub(crate) possible_placement: Range<usize>,
 }
 
-/// あるスナップショット時点での1本の行・列の分析結果。
+/// あるスナップショット時点での1本の行・列の分析結果
 ///
 /// [`LineAnalysis::compute`] でのみ作られる不変値。8つの推論規則
-/// （[`crate::rules`]）はこれを読むだけの純関数として実装される。
+/// （[`crate::rules`]）はこれを読むだけの純関数として実装される
 #[derive(Clone, Debug)]
 pub(crate) struct LineAnalysis {
-    /// 分析に使ったセル状態のスナップショット。
+    /// 分析に使ったセル状態のスナップショット
     pub(crate) cells: Vec<CellState>,
-    /// ブロックごとの分析結果（制約と同じ並び）。
+    /// ブロックごとの分析結果（制約と同じ並び）
     pub(crate) blocks: Vec<BlockInfo>,
     /// セルごとの候補ブロックID範囲。このセルが黒だとしたら、どのブロックの
-    /// 一部であり得るか（半開区間）。空なら「どのブロックにも属せない＝白」。
+    /// 一部であり得るか（半開区間）。空なら「どのブロックにも属せない＝白」
     pub(crate) candidates: Vec<Range<usize>>,
-    /// 黒マスの極大連続区間。
+    /// 黒マスの極大連続区間
     pub(crate) black_segments: Vec<(usize, usize)>,
-    /// 非白（黒または未確定）マスの極大連続区間。
+    /// 非白（黒または未確定）マスの極大連続区間
     pub(crate) non_white_segments: Vec<(usize, usize)>,
-    /// 未確定マスの極大連続区間。
+    /// 未確定マスの極大連続区間
     pub(crate) unconfirmed_segments: Vec<(usize, usize)>,
 }
 
 impl LineAnalysis {
-    /// 制約 `block_sizes` と現在のセル状態 `cells` から分析を計算する。
+    /// 制約 `block_sizes` と現在のセル状態 `cells` から分析を計算する
     ///
     /// ブロックの配置可能範囲とセルの候補ブロックID範囲を、互いに狭め合いが
     /// 止まる（不動点）まで反復する。あるブロックがどこにも収まらなくなったら
-    /// そのブロックの番号を `Err` で返す（行レベルの矛盾）。
+    /// そのブロックの番号を `Err` で返す（行レベルの矛盾）
     ///
     /// 各ループは `id` を `blocks[id]` と `min_starts[id]`/`max_ends[id]` の
     /// 両方の添字に使っており、`enumerate()` 化すると可読性が落ちるため
-    /// `needless_range_loop` を許容する。
+    /// `needless_range_loop` を許容する
     #[allow(clippy::needless_range_loop)]
     pub(crate) fn compute(block_sizes: &[usize], cells: &[CellState]) -> Result<Self, usize> {
         let n = cells.len();
@@ -203,7 +203,7 @@ impl LineAnalysis {
 
         for (id, block) in blocks.iter().enumerate() {
             if block.possible_placement.start + block.size > block.possible_placement.end {
-                // ブロック `id` がどこにも収まらない（行レベルの矛盾）。
+                // ブロック `id` がどこにも収まらない（行レベルの矛盾）
                 return Err(id);
             }
         }
@@ -218,13 +218,13 @@ impl LineAnalysis {
         })
     }
 
-    /// この行・列のマス数。
+    /// この行・列のマス数
     pub(crate) fn n(&self) -> usize {
         self.cells.len()
     }
 
     /// セル `j` の候補ブロックのうち最小のサイズ。候補が空なら `None`。
-    /// ブロック数は小さいので素朴に走査する。
+    /// ブロック数は小さいので素朴に走査する
     pub(crate) fn min_possible_size(&self, j: usize) -> Option<usize> {
         self.candidates[j]
             .clone()
@@ -232,7 +232,7 @@ impl LineAnalysis {
             .min()
     }
 
-    /// セル `j` の候補ブロックのうち最大のサイズ。候補が空なら `None`。
+    /// セル `j` の候補ブロックのうち最大のサイズ。候補が空なら `None`
     pub(crate) fn max_possible_size(&self, j: usize) -> Option<usize> {
         self.candidates[j]
             .clone()
@@ -240,12 +240,12 @@ impl LineAnalysis {
             .max()
     }
 
-    /// セル `j` の候補ブロックがただ1つに確定していればその ID。
+    /// セル `j` の候補ブロックがただ1つに確定していればその ID
     pub(crate) fn confirmed_id(&self, j: usize) -> Option<usize> {
         (self.candidates[j].len() == 1).then(|| self.candidates[j].start)
     }
 
-    /// セル `j` を含む非白領域の左端。
+    /// セル `j` を含む非白領域の左端
     pub(crate) fn non_white_left(&self, j: usize) -> usize {
         let mut l = j;
         while l > 0 && self.cells[l - 1] != CellState::White {
@@ -254,7 +254,7 @@ impl LineAnalysis {
         l
     }
 
-    /// セル `j` を含む非白領域の右端（半開区間の終端）。
+    /// セル `j` を含む非白領域の右端（半開区間の終端）
     pub(crate) fn non_white_right(&self, j: usize) -> usize {
         let mut r = j;
         while r < self.n() && self.cells[r] != CellState::White {
@@ -263,7 +263,7 @@ impl LineAnalysis {
         r
     }
 
-    /// 黒マス `j` を含む黒連続区間の長さ。
+    /// 黒マス `j` を含む黒連続区間の長さ
     pub(crate) fn black_run_size(&self, j: usize) -> usize {
         let mut l = j;
         while l > 0 && self.cells[l - 1] == CellState::Black {
@@ -321,8 +321,8 @@ mod tests {
 
     #[test]
     fn test_no_placement() {
-        // 幅2に長さ3のブロックは収まらない…は Clues 検証で弾かれる形なので、
-        // 白確定によって収まらなくなるケースを見る。
+        // 制約自体が線長を超えるケースは Clues 検証で弾かれるので、
+        // 白確定によって収まらなくなるケースを見る
         let cells = cells_from("x.x");
         assert!(matches!(LineAnalysis::compute(&[2], &cells), Err(0)));
     }
